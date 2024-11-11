@@ -206,6 +206,7 @@ class Motor_CSP:
 def main():
     network = canopen.Network()
     network.connect(bustype='pcan', channel='PCAN_USBBUS1', bitrate=1000000)
+
     def GO(traj, motor,interval=0.01):
         for position in traj:
             # 记录开始时间
@@ -213,7 +214,7 @@ def main():
             # 更新目标位置
             motor.go_to_position(position)
             #motor2.go_to_position(position)
-            motor.send_sync_frame()         
+            motor.send_sync_frame()     
             # 计算需要等待的时间
             elapsed_time = time.perf_counter() - start_time
             sleep_time = max(0, interval - elapsed_time)          
@@ -237,12 +238,12 @@ def main():
         target_positions = [motor1.angle_to_position(angle) for angle in y_values_array]
 
         # 设置控制点
-        x_points1 = np.array([0, 1000, 2000])  # X轴上的控制点
-        y_points1 = np.array([45, 225, 45])  # Y轴上的控制点
+        x_points1 = np.array([0, 500, 1000])  # X轴上的控制点
+        y_points1 = np.array([45, 135, 45])  # Y轴上的控制点
         # 创建三次样条曲线对象
         spline1 = make_interp_spline(x_points1, y_points1, k=3, bc_type=([(1, 0.0)], [(1, 0.0)]))  # k=3表示三次样条
         # 生成 1000 个均匀分布的 x 值
-        x_10001 = np.linspace(0, 2000, 2000)
+        x_10001 = np.linspace(0, 1000, 1000)
         y_10001 = spline1(x_10001)  # 计算每个 x 值对应的 y 值
         # 将 y 值存入数组
         y_values_array1 = y_10001
@@ -255,9 +256,11 @@ def main():
         actuall_position = motor1.get_actual_position()
         motor1.go_to_position(actuall_position)
         motor1.send_sync_frame()
+        motor1.clear_fault()
         time.sleep(1)
-        
-        GO(target_positions, motor1)
+        motor1.enable_motor()
+        time.sleep(1)
+        GO(target_positions1, motor1)
 
         logger.info("CSP轨迹跟随完成")
         crrent_position = motor1.get_actual_position()
