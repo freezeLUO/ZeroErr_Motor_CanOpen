@@ -51,6 +51,7 @@ class MotorControlGUI:
             angle_entry = ttk.Entry(mainframe, textvariable=angle_var, width=10)
             angle_entry.grid(column=3, row=idx, sticky='E')
             angle_entry.bind("<Return>", lambda event, m=motor, v=angle_var: self.update_motor_angle(m, v.get()))
+            angle_var.set('')  # 清空文本框中的角度显示
             
             # 确认按钮
             confirm_button = ttk.Button(mainframe, text="确认", command=lambda m=motor, v=angle_var: self.update_motor_angle(m, v.get()))
@@ -107,25 +108,48 @@ def main():
     network = canopen.Network()
     network.connect(bustype='pcan', channel='PCAN_USBBUS1', bitrate=1000000)
     utils = MotorUtils()
-    try:
-        # 初始化4个电机
-        motors = []
-        for node_id in [0x01, 0x02, 0x03, 0x04]:
-            motor = Motor_PP(node_id, network)
-            motors.append(motor)
-        
-        # 创建Tkinter主窗口
-        root = tk.Tk()
-        app = MotorControlGUI(root, motors, utils)
+    
+    # 创建Tkinter主窗口
+    root = tk.Tk()
+    # 显示初始化状态
+    status_label = ttk.Label(root, text="正在初始化电机，请稍候...")
+    status_label.pack(pady=20)
+    root.update()
+    
+    attempts = 0
+    max_attempts = 8
+    initialized = False
+
+    while attempts < max_attempts and not initialized:
+        try:
+            # 初始化4个电机
+            motors = []
+            for node_id in [0x01, 0x02, 0x03, 0x04]:
+                motor = Motor_PP(node_id, network)
+                motors.append(motor)
+            initialized = True
+        except Exception as e:
+            attempts += 1
+            logger.error(f"第 {attempts} 次初始化电机失败: {e}")
+            time.sleep(0.5)  # 等待一段时间再重试
+            root.update()
+
+    if not initialized:
+        status_label.config(text="初始化电机失败，请检查连接。")
+        logger.error("电机初始化失��，程序退出。")
         root.mainloop()
-    except Exception as e:
-        logger.error(f"主程序运行出错: {e}")
-    finally:
-        # 停止角度读取线程
-        app.angle_reader.stop()
-        # 断开CAN网络连接
-        network.disconnect()
-        logger.info("已断开与CAN网络的连接")
+        return
+
+    # 初始化成功，启动GUI应用
+    status_label.pack_forget()
+    app = MotorControlGUI(root, motors, utils)
+    root.mainloop()
+
+    # 停止角度读取线程
+    app.angle_reader.stop()
+    # 断开CAN网络连接
+    network.disconnect()
+    logger.info("已断开与CAN网络的连接")
 
 if __name__ == "__main__":
     main()
