@@ -1,0 +1,3 @@
+[submodule "Motor_Controller_CANOpen"]
+	path = Motor_Controller_CANOpen
+	url = https://github.com/freezeLUO/Motor_Controller_CANOpen.git
